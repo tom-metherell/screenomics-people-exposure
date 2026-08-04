@@ -1,0 +1,1061 @@
+---
+title: "Modelling"
+author: "Thomas E. Metherell"
+date: "2026-05-28"
+format:
+    html:
+        code-fold: true
+        toc: true
+        toc-depth: 5
+engine: julia
+julia:
+    project: .
+    exeflags: ["--threads=10"]
+---
+
+## Dependencies
+
+```{julia}
+#| echo: false
+ENV["GKSwstype"] = "100";
+ENV["PLOTS_TEST"] = "true";
+```
+
+```{julia}
+#| output: false
+using CategoricalArrays, DataFrames, JLD2, JSON3, Mice, MixedModels, OrderedCollections, Plots, PrettyTables, StatsBase, StatsModels, Base.Threads
+```
+
+```{julia}
+#| echo: false
+gr(display_type = :inline);
+```
+
+```{julia}
+#| output: false
+# Directory of names of imputed datasets with characteristics
+const datalist = OrderedDict(
+	"imputed_data_premh" => ["Main dataset", "Mental health → On-screen people exposure statistics"],
+	"imputed_data_postmh" => ["Main dataset", "On-screen people exposure statistics → Mental health"],
+	"R_imputed_data_premh" => ["Main dataset (imputed in R)", "Mental health → On-screen people exposure statistics"],
+	"R_imputed_data_postmh" => ["Main dataset (imputed in R)", "On-screen people exposure statistics → Mental health"],
+	"imputed_data_sens_auxil_premh" => ["Sensitivity analysis dataset without potential colliders as auxiliary variables", "Mental health → On-screen people exposure statistics"],
+	"imputed_data_sens_auxil_postmh" => ["Sensitivity analysis dataset without potential colliders as auxiliary variables", "On-screen people exposure statistics → Mental health"],
+	"imputed_data_sens_wd_premh" => ["Weekday-only sensitivity analysis dataset", "Mental health → On-screen people exposure statistics"],
+	"imputed_data_sens_wd_postmh" => ["Weekday-only sensitivity analysis dataset", "On-screen people exposure statistics → Mental health"],
+	"imputed_data_sens_we_premh" => ["Weekend-only sensitivity analysis dataset", "Mental health → On-screen people exposure statistics"],
+	"imputed_data_sens_we_postmh" => ["Weekend-only sensitivity analysis dataset", "On-screen people exposure statistics → Mental health"],
+	"imputed_data_sens_missingness_premh" => ["Sensitivity analysis dataset without participants with >75% of periods of phone use classed as missing", "Mental health → On-screen people exposure statistics"],
+	"imputed_data_sens_missingness_postmh" => ["Sensitivity analysis dataset without participants with >75% of periods of phone use classed as missing", "On-screen people exposure statistics → Mental health"],
+	"imputed_data_sens_conf_premh" => ["Sensitivity analysis dataset with person exposure summary statistics not requiring minimum 70% confidence in people detections", "Mental health → On-screen people exposure statistics"],
+	"imputed_data_sens_conf_postmh" => ["Sensitivity analysis dataset with person exposure summary statistics not requiring minimum 70% confidence in people detections", "On-screen people exposure statistics → Mental health"]
+);
+
+# Directory of datasets themselves
+const datasets = OrderedDict();
+for i in eachindex(datalist)
+	push!(datasets, i => load("resources/" * i * ".jld2", i))
+end;
+
+# Directory of mental health variables with labels
+const mh_vars = [
+    "ccdis08" => "Loneliness",
+    "ccdisavg_re75" => "Depressive symptoms",
+    "canxiavg_re75" => "Anxiety symptoms",
+    "cposafavg_re75" => "Positive affect",
+    "cstrsavg_re75" => "Psychological stress",
+    "cwgtconavg_re75" => "Body image"
+];
+
+# Directory of on-screen people exposure variables with labels
+const screen_vars = [
+	"prop_screens_with_person" => "Proportion of screenshots containing at least one person",
+	"n_bouts" => "Number of bouts of people on-screen",
+	"mean_bout_duration_seconds" => "Mean bout duration",
+	"sd_bout_duration_seconds" => "Standard deviation of bout duration",
+	"mean_time_between_bouts_seconds" => "Mean time between bouts",
+	"sd_time_between_bouts_seconds" => "Standard deviation of time between bouts",
+	"median_bout_mean_person_area_pct" => "Median of bout-level mean percentages of screen area occupied by people"
+];
+
+# Variables which are coded in the opposite direction to the "intuitive" direction, e.g. higher values mean worse mental health or less (variable) on-screen people exposure
+const reversed_mh_vars = ["ccdis08", "ccdisavg_re75", "canxiavg_re75", "cstrsavg_re75", "cwgtconavg_re75"];
+const reversed_screen_vars = ["mean_time_between_bouts_seconds", "sd_time_between_bouts_seconds"];
+
+# Columns that should not be standardised
+const default_ignorecols = [:participant_id, :family_id, :cgenderfirst, :dv_race, :n_bouts_overlapping_missing, :n_between_bout_gaps_ignored_missing];
+
+# Default covariates
+const ti_covariates = ["cageyrs01", "cgenderfirst", "dv_race", "csbnum01", "dv_paredu", "dv_phhinc", "dv_psnap"];
+const tv_covariates = ["period_id", "n_screenshots", "n_bouts", "caddph", "caddsm", "chealth", "dv_covcase", "dv_covbeh", "ccvmdef01", "cpsqiscore", "cmodexe", "ccyb4wk", "dv_calc", "dv_csmoke", "dv_ccan", "cschftf", "cschonli", "dv_cpwarm", "dv_cpconf5", "dv_cpconf", "dv_paddph", "dv_paddsm", "dv_phealth", "dv_pcovcase", "dv_pcvmdef01", "dv_pcesd09", "dv_pcesdavg_re75", "dv_panxiavg_re75", "dv_pposafavg_re75", "dv_pstrsavg_re75", "dv_psubs1_re", "dv_psubs2_re"];
+
+# Directory of plain-language variable names for user-friendly tables
+const verbosetermnames = vcat(mh_vars, screen_vars, [
+    "cgenderfirst: 2" => "Gender: Female",
+    "cgenderfirst: 3" => "Gender: Other",
+    "dv_race: American Indian or Alaskan Native" => "Ethnicity: American Indian or Alaskan Native",
+    "dv_race: Asian" => "Ethnicity: Asian",
+    "dv_race: Black or African American" => "Ethnicity: Black or African American",
+    "dv_race: Hispanic or Latino" => "Ethnicity: Hispanic or Latino",
+    "dv_race: Multiple" => "Ethnicity: Multiple",
+    "dv_race: Other" => "Ethnicity: Other",
+    "cageyrs01" => "Initial age",
+    "csbnum01" => "Number of siblings",
+    "dv_paredu" => "Parental education",
+    "dv_phhinc" => "Household income",
+    "dv_psnap" => "Receipt of SNAP",
+    "caddph" => "Perceived smartphone addiction",
+    "caddsm" => "Perceived social media addiction",
+    "chealth" => "Perceived general health",
+    "cpsqiscore" => "Sleep quality",
+    "cmodexe" => "Physical exercise",
+    "ccyb4wk" => "Cyberbullying victimisation",
+    "dv_calc" => "Alcohol consumption",
+    "dv_csmoke" => "Smoking/vaping",
+    "dv_ccan" => "Cannabis use",
+    "cschftf" => "School attendance: face-to-face",
+    "cschonli" => "School attendance: online",
+    "dv_paddph" => "Parents' perceived smartphone addiction",
+    "dv_paddsm" => "Parents' perceived social media addiction",
+    "dv_phealth" => "Parents' perceived general health",
+    "dv_pcesd09" => "Parents' loneliness",
+    "dv_pcesdavg_re75" => "Parents' depressive symptoms",
+    "dv_panxiavg_re75" => "Parents' anxiety symptoms",
+    "dv_pposafavg_re75" => "Parents' positive affect",
+    "dv_pstrsavg_re75" => "Parents' psychological stress",
+    "dv_psubs1_re" => "Parents' tobacco and other substance use",
+    "dv_psubs2_re" => "Parents' alcohol consumption",
+    "dv_cpwarm" => "Parental warmth",
+    "dv_cpconf5" => "Conflict with parents regarding device use",
+    "dv_cpconf" => "Conflict with parents other than regarding device use",
+    "dv_covcase" => "COVID-19 caseness",
+    "dv_covbeh" => "COVID-19 distancing behaviours",
+    "ccvmdef01" => "Fear related to COVID-19 in media",
+    "dv_pcovcase" => "Parental COVID-19 caseness",
+    "dv_pcvmdef01" => "Parental fear related to COVID-19 in media",
+    "period_id" => "Study timepoint",
+    "n_screenshots" => "Total number of screenshots collected in period"
+]);
+```
+
+```{julia}
+#######
+# Function: parse_formula_terms
+# Inputs: vectors of time-invariant and time-varying covariates
+# Method: converts vectors of variable names into a single formula term linked with +
+# Output: formula term to be included in model formula
+#######
+function parse_formula_terms(ti_covariates::Vector{String}, tv_covariates::Vector{String})
+    isempty(ti_covariates) && isempty(tv_covariates) && return nothing
+    
+    ti_parsed_terms = [term(Symbol(strip(t))) for t in ti_covariates]
+
+	tv_parsed_terms = [term(Symbol(strip(t))) for t in tv_covariates]
+	
+	parsed_terms = vcat(ti_parsed_terms, tv_parsed_terms)
+
+    foldl(+, parsed_terms)
+end;
+
+#######
+# Function: fit_standardised_model
+# Inputs: single imputed dataset, model formula, columns to ignore when standardising
+# Method: standardises all columns except those named in ignorecols, then fits a mixed model according to the provided formula
+# Output: a fitted MixedModel object
+#######
+function fit_standardised_model(
+	data::DataFrame,
+	formula::FormulaTerm;
+	ignorecols::Vector{Symbol},
+	)
+
+	sort!(data, [:participant_id, :period_id])
+
+	data = data[.!any.(eachrow(ismissing.(data))), :]
+	
+	for i in names(data[!, Cols(Not(ignorecols))])
+		if i == "ccyb4wk"
+			data[!, i] = unwrap.(data[!, i])
+		end
+		data[!, i] = Float64.(disallowmissing(data[!, i]))
+		data[!, i] = standardize(ZScoreTransform, data[!, i])
+	end
+
+	return fit(MixedModel, formula, data, contrasts = Dict(:dv_race => DummyCoding(base = "White")))
+end;
+
+#######
+# Function: fit_statetrait_model
+# Inputs: single imputed dataset, model formula, columns to ignore when standardising, primary variable for which state and trait components should be calculated, vector of participant IDs to be rejected because they have only one unique value for the primary variable across all periods
+# Method: first rejects participants with only one unique value for the primary variable across all periods, then standardises all columns except those named in ignorecols, then calculates state and trait components for the primary variable and standardises those, then fits a mixed model according to the provided formula
+# Output: a fitted MixedModel object
+#######
+function fit_statetrait_model(
+	data::DataFrame,
+	formula::FormulaTerm;
+	ignorecols::Vector{Symbol},
+	primvar::Symbol,
+	rejected_ppts::Vector{Int}
+	)
+
+    filter!(row -> row.participant_id ∉ rejected_ppts, data)
+	
+	for i in names(data[!, Cols(Not(ignorecols))])
+		if i == "ccyb4wk"
+			data[!, i] = unwrap.(data[!, i])
+		end
+		data[!, i] = Float64.(disallowmissing(data[!, i]))
+		if i ≠ primvar
+			data[!, i] = standardize(ZScoreTransform, data[!, i])
+		end
+	end
+
+	data[!, Symbol(primvar, "_st")] = Vector{Float64}(undef, nrow(data))
+	data[!, Symbol(primvar, "_tr")] = Vector{Float64}(undef, nrow(data))
+
+	for i in unique(data.participant_id)
+		if length(unique(data[data.participant_id .== i, Symbol(primvar)])) > 1
+			data[data.participant_id .== i, Symbol(primvar, "_tr")] .= mean(data[data.participant_id .== i, primvar])
+			data[data.participant_id .== i, Symbol(primvar, "_st")] .= standardize(ZScoreTransform, data[data.participant_id .== i, primvar])
+		else
+			throw(ArgumentError("Participant with only one unique value for $primvar has not been correctly rejected."))
+		end
+	end
+
+	return fit(MixedModel, formula, data, contrasts = Dict(:dv_race => DummyCoding(base = "White")))
+end;
+
+#######
+# Function: fit_models
+# Inputs: Mids object containing imputed datasets, directionality of model to be fitted, names of mental health and screen variables to be included in model formula, vectors of time-invariant and time-varying covariates to be included in model formula, columns to ignore when standardising, whether to fit split state-trait models or not
+# Method: parses covariate vectors into formula terms, constructs model formula according to directionality and whether split state-trait models are being fitted, then fits either standardised mixed models or state-trait mixed models across all imputed datasets using the with function from Mice.jl
+# Output: a Mira object containing fitted models for all imputed datasets
+#######
+function fit_models(
+	data::Mids;
+	directionality::String,
+	mh_var::String,
+	screen_var::String,
+	ti_covariates::Vector{String},
+	tv_covariates::Vector{String},
+	ignorecols::Vector{Symbol},
+	split::Bool = false
+	)
+	
+	covariatesterms = parse_formula_terms(ti_covariates, tv_covariates)
+
+	if directionality == "premh"
+		if split
+			mh_var_tr = mh_var * "_tr"
+			mh_var_st = mh_var * "_st"
+			formula = term(Symbol(screen_var)) ~ term(1) + if !isnothing(covariatesterms) term(Symbol(mh_var_tr)) * term(Symbol(mh_var_st)) + covariatesterms else term(Symbol(mh_var_tr)) * term(Symbol(mh_var_st)) end + (term(1) + term(Symbol(mh_var_st)) | term(:participant_id))
+		else
+			formula = term(Symbol(screen_var)) ~ term(1) + if !isnothing(covariatesterms) term(Symbol(mh_var)) + covariatesterms else term(Symbol(mh_var)) end + (term(1) + term(Symbol(mh_var)) | term(:participant_id))
+		end
+	elseif directionality == "postmh"
+		if split
+			screen_var_tr = screen_var * "_tr"
+			screen_var_st = screen_var * "_st"
+			formula = term(Symbol(mh_var)) ~ term(1) + if !isnothing(covariatesterms) term(Symbol(screen_var_tr)) * term(Symbol(screen_var_st)) + covariatesterms else term(Symbol(screen_var_tr)) * term(Symbol(screen_var_st)) end + (term(1) + term(Symbol(screen_var_st)) | term(:participant_id))
+		else
+			formula = term(Symbol(mh_var)) ~ term(1) + if !isnothing(covariatesterms) term(Symbol(screen_var)) + covariatesterms else term(Symbol(screen_var)) end + (term(1) + term(Symbol(screen_var)) | term(:participant_id))
+		end
+	end
+	
+    if split
+        primvar = directionality == "premh" ? Symbol(mh_var) : Symbol(screen_var)
+
+        rejected_ppts = Int[]
+        for i in unique(complete(data, 1).participant_id)
+            for j in 1:data.m
+                current_data = complete(data, j)
+                if length(unique(current_data[current_data.participant_id .== i, primvar])) < 2
+                    push!(rejected_ppts, i)
+                    break
+                end
+            end
+        end
+
+		models = Mice.with(data, data -> fit_statetrait_model(data, formula, ignorecols = ignorecols, primvar = primvar, rejected_ppts = rejected_ppts))
+	else
+		models = Mice.with(data, data -> fit_standardised_model(data, formula, ignorecols = ignorecols))
+	end
+
+	return models
+end;
+
+#######
+# Function: getsuppressedcoefs
+# Input: Mids object containing imputed datasets
+# Method: identifies coefficients that must be suppressed by checking for categorical or binary variables with levels that have fewer than 10 participants within at least one period in at least one imputed dataset
+# Output: vector of term names that must be suppressed in coefficient tables
+#######
+function getsuppressedcoefs(
+    data::Mids
+    )
+    suppressed_coefs = String[]
+
+    for i in [complete(data, x) for x in 1:data.m]
+        for j in names(i)
+            if any([CategoricalValue{Int64, UInt32}, CategoricalValue{String, UInt32}, String] .<: eltype(i[!, j])) || length(levels(i[!, j])) == 2
+                for k in unique(i.period_id)
+                    for l in levels(i[!, j])
+                        if count(x -> x == l, i[i.period_id .== k, j]) < 10
+                            if any([CategoricalValue{Int64, UInt32}, CategoricalValue{String, UInt32}, String] .<: eltype(i[!, j]))
+                                push!(suppressed_coefs, string(j) * ": " * string(l))
+                            else
+                                push!(suppressed_coefs, string(j))
+                            end
+                        end
+                    end
+                end
+            end
+        end
+    end
+
+    return unique(suppressed_coefs)
+end;
+
+#######
+# Function: sortresults
+# Inputs: coefficient table from pooled model results, directionality of model, names of mental health and screen variables included in model formula, whether split state-trait models were fitted or not, vector of term names to suppress, and vector of pairs of term names with their user-friendly equivalents
+# Method: sorts coefficient table so that terms relating to the primary variable of interest are at the top in a consistent order across models, then terms are ordered by absolute value of coefficient, then any terms that need to be suppressed are filtered out and finally user-friendly term names are substituted in
+# Output: sorted and filtered DataFrame of pooled model results
+#######
+function sortresults(
+	results::CoefTable;
+	directionality::String,
+	mh_var::String,
+	screen_var::String,
+	split::Bool = false,
+    suppress::Vector{String} = String[],
+    verbosetermnames::Vector{Pair{String, String}} = verbosetermnames
+	)
+
+	resultsdf = DataFrame(results)
+	order = vcat(
+		"(Intercept)",
+		directionality == "premh" ?
+			(split ?
+				[mh_var * "_tr", mh_var * "_st", mh_var * "_tr & " * mh_var * "_st"] :
+				mh_var) :
+			(split ?
+				[screen_var * "_tr", screen_var * "_st", screen_var * "_tr & " * screen_var * "_st"] :
+				screen_var)
+	)
+
+	remainder = resultsdf.Name[resultsdf.Name .∉ Ref(order)]
+	sorteddf = sort(resultsdf[resultsdf.Name .∈ Ref(remainder), :], Symbol("Coef."), rev = true, by = abs)
+	append!(order, sorteddf.Name)
+
+	resultsdf.order = [findfirst(order .== x) for x in resultsdf.Name]
+	sort!(resultsdf, :order)
+    select!(resultsdf, Not(:order))
+
+    filter!(row -> row.Name ∉ suppress, resultsdf)
+
+    resultsdf.Name = replace.(resultsdf.Name, verbosetermnames...)
+
+	return resultsdf
+end;
+
+#######
+# Function: extractcoefs
+# Inputs: coefficient table from pooled model results, whether split state-trait models were fitted or not
+# Method: extracts coefficient values and p-values for terms relating to the primary variable of interest, either as combined state-trait coefficients or as separate state and trait coefficients depending on whether split state-trait models were fitted or not
+# Outputs: coefficient values and p-values for the specified terms
+#######
+function extractcoefs(
+	coeftable::CoefTable;
+	split::Bool = false
+)
+	coeftable = DataFrame(coeftable)
+
+	if split
+		β_tr = coeftable[2, Symbol("Coef.")]
+		p_tr = coeftable[2, Symbol("Pr(>|t|)")]
+		β_st = coeftable[3, Symbol("Coef.")]
+		p_st = coeftable[3, Symbol("Pr(>|t|)")]
+
+		return β_tr, p_tr, β_st, p_st
+	else
+		β = coeftable[2, Symbol("Coef.")]
+		p = coeftable[2, Symbol("Pr(>|t|)")]
+			
+		return β, p
+	end
+end;
+
+#######
+# Function: butterflyplot
+# Inputs: Mira object containing fitted models for all imputed datasets, names of mental health and screen variables included in model formula, directionality of model, whether split state-trait models were fitted or not
+# Method: extracts random effects for the primary variable of interest across all imputed datasets, plots a line for each imputed dataset with the random effect for the primary variable on the x-axis and the random effect for the dependent variable on the y-axis, then plots a thicker line representing the fixed effect coefficient for the primary variable
+# Output: a butterfly plot visualising the mean random effects across imputed datasets for the primary variable and the fixed effect coefficient for the primary variable
+#######
+function butterflyplot(
+    models::Mira;
+    mh_var::String,
+    mh_var_label::String,
+    screen_var::String,
+    screen_var_label::String,
+    directionality::String,
+    split::Bool = false
+    )
+
+    resultsdf = DataFrame(pool(models).coeftable)
+    randomeffects = mean([only(ranef(k)) for k in models.analyses])
+
+    dep_var = directionality == "premh" ? screen_var : mh_var
+    dep_var_label = directionality == "premh" ? screen_var_label : mh_var_label
+    indep_var = directionality == "premh" ? mh_var : screen_var
+    indep_var_label = directionality == "premh" ? mh_var_label : screen_var_label
+
+    β₀ = only(resultsdf[resultsdf.Name .== "(Intercept)", "Coef."])
+
+    if split
+        β₁ = only(resultsdf[resultsdf.Name .== indep_var * "_st", "Coef."])
+    else
+	    β₁ = only(resultsdf[resultsdf.Name .== indep_var, "Coef."])
+    end
+
+    indivcoefs = [β₀, β₁] .+ randomeffects
+
+    ranefplt = plot(
+		xlabel = (split ? "State " : "") * (split ? lowercasefirst(indep_var_label) : indep_var_label) * " (standardised)",
+		ylabel = dep_var_label * " (standardised)",
+		labelfontsize = 5,
+		legend = false
+	)
+
+	for k in eachcol(indivcoefs)
+		plot!(x -> k[2] * x, -5, 5, lw = 1, c = :grey50)
+	end
+
+	plot!(x -> β₁ * x, -5, 5, lw = 4, c = :blue)
+
+    return ranefplt
+end;
+
+#######
+# Function: makeheatmap
+# Inputs: coefficient table from pooled model results, directionality of model, names of mental health and screen variables included in model formulae, vectors of mental health and screen variables that should be reversed for visualisation purposes, whether to apply multiple comparison correction or not, title for the plot
+# Method: sorts coefficient table so that terms relating to the primary variable of interest are in a consistent order across models, then creates a heatmap with coefficient values represented by colour and significance represented by stars, with options to reverse the direction of certain variables for visualisation purposes and to apply multiple comparison correction using the Benjamini-Hochberg procedure
+# Output: a heatmap visualising the coefficient values and significance of associations between mental health and screen variables
+#######
+function makeheatmap(
+	coefs::DataFrame;
+	directionality::String,
+	mh_vars::Vector{Pair{String, String}} = mh_vars,
+    reversed_mh_vars::Vector{String} = reversed_mh_vars,
+	screen_vars::Vector{Pair{String, String}} = screen_vars,
+    reversed_screen_vars::Vector{String} = reversed_screen_vars,
+	multcorrection::Bool,
+	title::Union{Nothing, String} = nothing
+	)
+
+    # Sort coefficient tables to match the order in mh_vars and screen_vars
+    mh_var_order = [x[1] for x in mh_vars]
+    screen_var_order = [x[1] for x in screen_vars]
+    
+    # Create ordering dictionaries for efficient lookup
+    mh_order_dict = Dict(var => idx for (idx, var) in enumerate(mh_var_order))
+    screen_order_dict = Dict(var => idx for (idx, var) in enumerate(screen_var_order))
+
+    directionality == "premh" ? sort!(coefs, [:mh_var, :screen_var], by = [x -> mh_order_dict[x], x -> screen_order_dict[x]]) : sort!(coefs, [:screen_var, :mh_var], by = [x -> screen_order_dict[x], x -> mh_order_dict[x]])
+
+	if multcorrection
+		issignificant = falses(nrow(coefs))	
+		pvalsperm = sortperm(coefs.p, rev = true)
+		for idx in eachindex(pvalsperm)
+			if coefs.p[pvalsperm[idx]] < 0.05 / idx
+				issignificant[idx:end] .= true
+				break
+			end
+		end
+
+		coefs.issignificant = falses(nrow(coefs))
+		coefs.issignificant[pvalsperm] = issignificant
+	else
+		coefs.issignificant = coefs.p .< 0.05
+	end
+
+	coefs.β_if_significant = [row.issignificant ? row.β : 0.0 for row in eachrow(coefs)]
+	coefs.β_if_significant = [row.mh_var ∈ reversed_mh_vars ? -row.β_if_significant : row.β_if_significant for row in eachrow(coefs)]
+	coefs.β_if_significant = [row.screen_var ∈ reversed_screen_vars ? -row.β_if_significant : row.β_if_significant for row in eachrow(coefs)]
+	coefs.mh_var_label = [mh_vars[findfirst([y[1] == row.mh_var for y in mh_vars])][2] for row in eachrow(coefs)]
+	coefs.screen_var_label = [screen_vars[findfirst([y[1] == row.screen_var for y in screen_vars])][2] for row in eachrow(coefs)]
+
+	if directionality == "premh"
+		dep_var = coefs.screen_var
+		dep_var_label = coefs.screen_var_label
+		indep_var_label = coefs.mh_var_label
+	elseif directionality == "postmh"
+		dep_var = coefs.mh_var
+		dep_var_label = coefs.mh_var_label
+		indep_var_label = coefs.screen_var_label
+	end
+	
+	colourmat = reverse(reshape(coefs.β_if_significant, length(unique(dep_var)), :), dims = 1)
+	nrows, ncols = size(colourmat)
+	
+	plt = heatmap(
+		1:ncols, 1:nrows, colourmat;
+		c = cgrad(reverse([:midnightblue, :steelblue2, :lightgray, :salmon2, :darkred])),
+		clim = (-0.284, 0.284),
+		colorbar = false,
+		xrotation = 18,
+		size = (1050, 650),
+		xticks = (1:ncols, unique(indep_var_label)),
+		yticks = (1:nrows, reverse(unique(dep_var_label))),
+		legend = false,
+		leftmargin = (directionality == "postmh" ? 36 : 12)Plots.mm,
+		bottommargin = (directionality == "postmh" ? 36 : 10)Plots.mm,
+		title = !isnothing(title) ? title : (directionality == "premh" ?
+			"Mental health before screenshot period (β)" :
+			"Mental health after screenshot period (β)"),
+		titlefontsize = 10,
+		xlabel = directionality == "premh" ?
+			"Mental health variable" :
+			"Screen variable",
+		ylabel = directionality == "premh" ?
+			"Screen variable" :
+			"Mental health variable"
+	)
+
+	βmat = reverse(reshape(coefs.β, length(unique(dep_var)), :), dims = 1)
+	pmat = reverse(reshape(coefs.p, length(unique(dep_var)), :), dims = 1)
+	
+	for i in axes(pmat, 1), j in axes(pmat, 2)
+		β = βmat[i, j]
+		p = pmat[i, j]
+		stars = p ≥ 0.05 ? "" : repeat("*", Int(-ceil(log10(p))))
+		txt = β < 0 ?
+			rpad(string(round(β, digits = 3)), 6, "0") * stars : 
+			rpad(string(round(β, digits = 3)), 5, "0") * stars
+		intensity = abs(colourmat[i, j])
+		textcolour = intensity > 0.127 ? :white : :black
+		annotate!(plt, j, i, text(txt, 8, textcolour, :center))
+	end
+
+	for x in 0.5:(size(pmat, 2) + 0.5)
+		vline!([x], color = :grey, lw = 1)
+	end
+	for y in 0.5:(size(pmat, 1) + 0.5)
+		hline!([y], color = :grey, lw = 1)
+	end
+
+	return plt
+end;
+
+#######
+# Function: collateheatmaps
+# Inputs: coefficient tables from pooled model results for both directions of association, vectors of mental health and screen variables, whether to apply multiple comparison correction or not, whether split state-trait models were fitted or not
+# Method: creates a legend and heatmaps for both directions of association using the makeheatmap function, then collates these into a single plot with a shared legend
+# Output: a plot collating heatmaps for both directions of association with a shared legend
+#######
+function collateheatmaps(
+    premh_coefs::DataFrame,
+    postmh_coefs::DataFrame;
+    mh_vars::Vector{Pair{String, String}} = mh_vars,
+	screen_vars::Vector{Pair{String, String}} = screen_vars,
+	multcorrection::Bool,
+	split::Bool = false
+    )
+
+    legend_plot = plot(
+        xlim = (0, 1),
+        ylim = (0, 1),
+        legend = :left,
+        framestyle = :none,
+        grid = false,
+        xticks = false,
+        yticks = false,
+        foreground_color_legend = nothing,
+        background_color_legend = nothing,
+		legendtitle = "Direction of relationship\nbetween more (or more\nvariable) on-screen people\nexposure and mental health",
+		legendtitlefontsize = 8,
+    )
+
+	scatter!(legend_plot, [NaN], [NaN]; marker = :square, ms = 10, mc = :midnightblue, label = "Significant positive relationship")
+    scatter!(legend_plot, [NaN], [NaN]; marker = :square, ms = 10, mc = :darkred, label = "Significant negative relationship")
+    scatter!(legend_plot, [NaN], [NaN]; marker = :square, ms = 10, mc = :lightgray, label = "Not significant")
+
+    if split
+        premh_tr_coefs = premh_coefs[:, [:mh_var, :screen_var, :β_tr, :p_tr]]
+	    rename!(premh_tr_coefs, [:β_tr => :β, :p_tr => :p])
+	    premh_st_coefs = premh_coefs[:, [:mh_var, :screen_var, :β_st, :p_st]]
+	    rename!(premh_st_coefs, [:β_st => :β, :p_st => :p])
+	    postmh_tr_coefs = postmh_coefs[:, [:screen_var, :mh_var, :β_tr, :p_tr]]
+	    rename!(postmh_tr_coefs, [:β_tr => :β, :p_tr => :p])
+	    postmh_st_coefs = postmh_coefs[:, [:mh_var, :screen_var, :β_st, :p_st]]
+	    rename!(postmh_st_coefs, [:β_st => :β, :p_st => :p])
+
+        plots = [makeheatmap(i, directionality = j, multcorrection = multcorrection, title = (
+            j == "premh" ? "Mental health before screenshot period – $k mental health (β)" : "Mental health after screenshot period – $k screen measures (β)"
+        )) for (i, j, k) in [
+            (premh_tr_coefs, "premh", "trait"),
+            (postmh_tr_coefs, "postmh", "trait"),
+            (premh_st_coefs, "premh", "state"),
+            (postmh_st_coefs, "postmh", "state")
+        ]]
+
+        heatmaps = plot(
+            plots...,
+            layout = @layout([a{0.5w} b{0.5w}  
+				  	          c{0.5w} d{0.5w}]),
+            titlefontsize = 14,
+            top_margin = 10Plots.mm
+        )
+
+        return plot(
+            heatmaps, legend_plot,
+            layout = @layout([a b{0.12w}]),
+            size = (2400, 1400)
+        )
+    else
+        plots = [makeheatmap(i, directionality = j, multcorrection = multcorrection, title = (
+            j == "premh" ? "Mental health before screenshot period (β)" : "Mental health after screenshot period (β)"
+        )) for (i, j) in [(premh_coefs, "premh"), (postmh_coefs, "postmh")]]
+
+        return plot(
+            plots..., legend_plot,
+            layout = @layout([a b c{0.18w}]),
+            size = (2200, 650),
+            titlefontsize = 18,
+            top_margin = 10Plots.mm
+        )
+    end
+end;
+```
+
+```{julia}
+#| output: false
+for i in unique([x[1] for x in values(datalist)])
+    # Identify and load current relevant imputed datasets
+    premhdatasetname = collect(keys(datalist))[findfirst(x -> x[1] == i && x[2] == "Mental health → On-screen people exposure statistics", collect(values(datalist)))];
+    postmhdatasetname = collect(keys(datalist))[findfirst(x -> x[1] == i && x[2] == "On-screen people exposure statistics → Mental health", collect(values(datalist)))];
+    premhdataset = datasets[premhdatasetname];
+    postmhdataset = datasets[postmhdatasetname];
+
+    # Generate heatmap data file if it doesn't exist, otherwise load it
+    data_file = "models_files/data/$(i)_heatmaps_data.jld2"
+    
+    if isfile(data_file)
+        premh_adj_coefs, postmh_adj_coefs, premh_unadj_coefs, postmh_unadj_coefs, premh_split_coefs, postmh_split_coefs = load(data_file, "premh_adj_coefs", "postmh_adj_coefs", "premh_unadj_coefs", "postmh_unadj_coefs", "premh_split_coefs", "postmh_split_coefs")
+    else
+        premh_adj_coefs = DataFrame(mh_var = String[], screen_var = String[], β = Float64[], p = []);
+	    postmh_adj_coefs = DataFrame(screen_var = String[], mh_var = String[], β = Float64[], p = []);
+        premh_unadj_coefs = DataFrame(mh_var = String[], screen_var = String[], β = Float64[], p = []);
+        postmh_unadj_coefs = DataFrame(screen_var = String[], mh_var = String[], β = Float64[], p = []);
+        premh_split_coefs = DataFrame(mh_var = String[], screen_var = String[], β_tr = Float64[], p_tr = [], β_st = Float64[], p_st = []);
+        postmh_split_coefs = DataFrame(screen_var = String[], mh_var = String[], β_tr = Float64[], p_tr = [], β_st = Float64[], p_st = []);
+    end
+
+    # Create all combinations to process
+    combinations = [(j, k, l) 
+                    for j in ["premh", "postmh"]
+                    for k in [x[1] for x in mh_vars]
+                    for l in [x[1] for x in screen_vars]]
+    
+    # Filter out combinations that are already complete
+    combinations_to_process = filter(combinations) do (j, k, l)
+        datasetname = j == "premh" ? premhdatasetname : postmhdatasetname
+        
+        filepaths = [
+            "models_files/adj_coeftables/$(datasetname)_$(k)_$(l).html",
+            "models_files/adj_butterflyplots/$(datasetname)_$(k)_$(l).svg",
+            "models_files/unadj_coeftables/$(datasetname)_$(k)_$(l).html",
+            "models_files/unadj_butterflyplots/$(datasetname)_$(k)_$(l).svg",
+            "models_files/split_coeftables/$(datasetname)_$(k)_$(l).html",
+            "models_files/split_butterflyplots/$(datasetname)_$(k)_$(l).svg"
+        ]
+        
+        files_exist = all(isfile, filepaths)
+        
+        coefs_exist = if j == "premh"
+            all([sum(x.mh_var .== k .&& x.screen_var .== l) for x in [premh_adj_coefs, premh_unadj_coefs, premh_split_coefs]] .== 1)
+        else
+            all([sum(x.screen_var .== l .&& x.mh_var .== k) for x in [postmh_adj_coefs, postmh_unadj_coefs, postmh_split_coefs]] .== 1)
+        end
+        
+        return !(files_exist && coefs_exist)
+    end
+    
+    # Channel for communicating results
+    results_channel = Channel{NamedTuple}(100)
+    
+    # Lock for thread-safe plotting (Plots.jl is not thread-safe)
+    plot_lock = ReentrantLock()
+    
+    # Spawn a task to handle saving (single-threaded, no locks needed)
+    saver_task = @async begin
+        try
+            for res in results_channel
+                if res.direction == "premh"
+                    # Remove existing rows if present
+                    filter!(row -> !(row.mh_var == res.mh_var && row.screen_var == res.screen_var), premh_adj_coefs)
+                    filter!(row -> !(row.mh_var == res.mh_var && row.screen_var == res.screen_var), premh_unadj_coefs)
+                    filter!(row -> !(row.mh_var == res.mh_var && row.screen_var == res.screen_var), premh_split_coefs)
+                    
+                    # Add new rows
+                    push!(premh_adj_coefs, (res.mh_var, res.screen_var, res.adj_coefs...))
+                    push!(premh_unadj_coefs, (res.mh_var, res.screen_var, res.unadj_coefs...))
+                    push!(premh_split_coefs, (res.mh_var, res.screen_var, res.split_coefs...))
+                else
+                    # Remove existing rows if present
+                    filter!(row -> !(row.screen_var == res.screen_var && row.mh_var == res.mh_var), postmh_adj_coefs)
+                    filter!(row -> !(row.screen_var == res.screen_var && row.mh_var == res.mh_var), postmh_unadj_coefs)
+                    filter!(row -> !(row.screen_var == res.screen_var && row.mh_var == res.mh_var), postmh_split_coefs)
+                    
+                    # Add new rows
+                    push!(postmh_adj_coefs, (res.screen_var, res.mh_var, res.adj_coefs...))
+                    push!(postmh_unadj_coefs, (res.screen_var, res.mh_var, res.unadj_coefs...))
+                    push!(postmh_split_coefs, (res.screen_var, res.mh_var, res.split_coefs...))
+                end
+                
+                # Save after each update
+                save(data_file, 
+                    "premh_adj_coefs", premh_adj_coefs,
+                    "postmh_adj_coefs", postmh_adj_coefs,
+                    "premh_unadj_coefs", premh_unadj_coefs,
+                    "postmh_unadj_coefs", postmh_unadj_coefs,
+                    "premh_split_coefs", premh_split_coefs,
+                    "postmh_split_coefs", postmh_split_coefs
+                )
+            end
+        catch e
+            @error "Saver task error" exception=(e, catch_backtrace())
+            rethrow(e)
+        end
+    end
+    
+    # Process models in parallel
+    @threads for idx in eachindex(combinations_to_process)
+        try
+            # Select relevant dataset
+            j, k, l = combinations_to_process[idx]
+            datasetname = j == "premh" ? premhdatasetname : postmhdatasetname
+            dataset = j == "premh" ? premhdataset : postmhdataset
+            
+            mh_var_label = mh_vars[findfirst([x[1] == k for x in mh_vars])][2]
+            screen_var_label = screen_vars[findfirst([x[1] == l for x in screen_vars])][2]
+            
+            # Columns not to be standardised
+            ignorecols = filter(x -> string(x) ∈ names(dataset.data), default_ignorecols)
+            
+            # Define time-varying covariates for current model (exclude n_bouts where this is (a function of) the current screen variable)
+            current_tv_covariates = if l ∈ ["n_bouts", "prop_screens_with_person", "mean_time_between_bouts_seconds"]
+                filter(x -> x ≠ "n_bouts", tv_covariates)
+            else
+                tv_covariates
+            end
+            
+            # Identify coefficients to be suppressed (because based on groups of <10 participants)
+            suppressed_coefs = getsuppressedcoefs(dataset)
+            
+            # Fit adjusted models and pool results
+            adj_models = fit_models(dataset, directionality = j, mh_var = k, screen_var = l, 
+                                    ti_covariates = ti_covariates, tv_covariates = current_tv_covariates, 
+                                    ignorecols = ignorecols)
+            adj_coeftable = pool(adj_models).coeftable
+            sorted_adj_coeftable = sortresults(adj_coeftable, directionality = j, mh_var = k, 
+                                              screen_var = l, split = false, suppress = suppressed_coefs)
+            
+            # Save coefficient table as HTML
+            open("models_files/adj_coeftables/$(datasetname)_$(k)_$(l).html", "w") do io
+                pretty_table(io, sorted_adj_coeftable, backend = :html)
+            end
+            
+            # Use lock for plotting (Plots.jl is not thread-safe)
+            # Butterfly plot for adjusted model
+            lock(plot_lock) do
+                adj_butterflyplt = butterflyplot(adj_models, mh_var = k, mh_var_label = mh_var_label, 
+                                                screen_var = l, screen_var_label = screen_var_label, 
+                                                directionality = j)
+                savefig(adj_butterflyplt, "models_files/adj_butterflyplots/$(datasetname)_$(k)_$(l).svg")
+            end
+            
+            # Extract coefficients for primary variable for heatmap
+            β, p = extractcoefs(adj_coeftable)
+            
+            # Fit unadjusted models and repeat above steps
+            unadj_models = fit_models(dataset, directionality = j, mh_var = k, screen_var = l, 
+                                      ti_covariates = String[], tv_covariates = String[], 
+                                      ignorecols = ignorecols)
+            unadj_coeftable = pool(unadj_models).coeftable
+            sorted_unadj_coeftable = sortresults(unadj_coeftable, directionality = j, mh_var = k, 
+                                                screen_var = l, split = false, suppress = suppressed_coefs)
+            
+            open("models_files/unadj_coeftables/$(datasetname)_$(k)_$(l).html", "w") do io
+                pretty_table(io, sorted_unadj_coeftable, backend = :html)
+            end
+            
+            # Use lock for plotting
+            lock(plot_lock) do
+                unadj_butterflyplt = butterflyplot(unadj_models, mh_var = k, mh_var_label = mh_var_label, 
+                                                  screen_var = l, screen_var_label = screen_var_label, 
+                                                  directionality = j)
+                savefig(unadj_butterflyplt, "models_files/unadj_butterflyplots/$(datasetname)_$(k)_$(l).svg")
+            end
+            
+            βᵤ, pᵤ = extractcoefs(unadj_coeftable)
+            
+            # Fit split models and repeat above steps
+            split_models = fit_models(dataset, directionality = j, mh_var = k, screen_var = l, 
+                                      ti_covariates = ti_covariates, tv_covariates = current_tv_covariates, 
+                                      ignorecols = ignorecols, split = true)
+            split_coeftable = pool(split_models).coeftable
+            sorted_split_coeftable = sortresults(split_coeftable, directionality = j, mh_var = k, 
+                                                screen_var = l, split = true, suppress = suppressed_coefs)
+            
+            open("models_files/split_coeftables/$(datasetname)_$(k)_$(l).html", "w") do io
+                pretty_table(io, sorted_split_coeftable, backend = :html)
+            end
+            
+            # Use lock for plotting
+            lock(plot_lock) do
+                split_butterflyplt = butterflyplot(split_models, mh_var = k, mh_var_label = mh_var_label, 
+                                                  screen_var = l, screen_var_label = screen_var_label, 
+                                                  directionality = j, split = true)
+                savefig(split_butterflyplt, "models_files/split_butterflyplots/$(datasetname)_$(k)_$(l).svg")
+            end
+            
+            β_tr, p_tr, β_st, p_st = extractcoefs(split_coeftable, split = true)
+            
+            # Send results to saver thread via channel
+            put!(results_channel, (
+                direction = j,
+                mh_var = k,
+                screen_var = l,
+                adj_coefs = (β, p),
+                unadj_coefs = (βᵤ, pᵤ),
+                split_coefs = (β_tr, p_tr, β_st, p_st)
+            ))
+        catch e
+            @error "Worker thread error for combination $idx" exception=(e, catch_backtrace())
+            rethrow(e)
+        end
+    end
+    
+    # Close channel and wait for saver to finish
+    close(results_channel)
+    wait(saver_task)
+
+    # Generate heatmaps after all models for this dataset are complete
+    for m in ["corr", "uncorr"]
+        multcorrection = m == "corr"
+
+        adj_heatmap = collateheatmaps(premh_adj_coefs, postmh_adj_coefs, multcorrection = multcorrection)
+        savefig(adj_heatmap, "models_files/adj_heatmaps/$(i)_$(m).svg")
+
+        unadj_heatmap = collateheatmaps(premh_unadj_coefs, postmh_unadj_coefs, multcorrection = multcorrection)
+        savefig(unadj_heatmap, "models_files/unadj_heatmaps/$(i)_$(m).svg")
+
+        split_heatmap = collateheatmaps(premh_split_coefs, postmh_split_coefs, multcorrection = multcorrection, split = true)
+        savefig(split_heatmap, "models_files/split_heatmaps/$(i)_$(m).svg")
+    end
+end
+
+# Build index of all generated files
+datasets_list = unique([x[1] for x in values(datalist)]);
+directionality_list = ["premh" => "Mental health → Screen exposure", "postmh" => "Screen exposure → Mental health"];
+analysis_types = ["adj" => "Adjusted", "unadj" => "Unadjusted", "split" => "Split (state/trait, adjusted)"];
+correction_types = ["corr" => "Corrected (Hochberg step-up procedure)", "uncorr" => "Uncorrected"];
+
+# Create dataset mapping for JavaScript - map index to premh dataset name
+dataset_premh_mapping = Dict(string(i) => collect(keys(datalist))[findfirst(x -> x[1] == ds && x[2] == "Mental health → On-screen people exposure statistics", collect(values(datalist)))] for (i, ds) in enumerate(datasets_list))
+dataset_postmh_mapping = Dict(string(i) => collect(keys(datalist))[findfirst(x -> x[1] == ds && x[2] == "On-screen people exposure statistics → Mental health", collect(values(datalist)))] for (i, ds) in enumerate(datasets_list));
+```
+
+```{julia}
+#| output: asis
+# The below code generates HTML line-by-line to create the interactive dashboard. All tables and plots are drawn from the files generated in the previous step.
+println("## Results dashboard")
+println("")
+println("Please note that coefficients derived from a group of fewer than 10 participants at any timepoint have been suppressed to prevent disclosure.")
+println("")
+println("Reference categories for categorical variables:")
+println("")
+println("- Gender – Male")
+println("- Ethnicity – White")
+println("")
+println("Select options below to view results:")
+println("")
+println("```{=html}")
+println("<link rel=\"stylesheet\" href=\"models_files/libs/custom/models_style.css\">")
+println("<div class=\"panel panel-default\">")
+println("    <div class=\"panel-body\">")
+println("        <div class=\"form-group\">")
+println("            <label for=\"dataset_select\">Dataset:</label>")
+println("            <select id=\"dataset_select\" class=\"form-select\">")
+
+for (idx, ds) in enumerate(datasets_list)
+    println("                <option value=\"", idx, "\">", ds, "</option>")
+end
+
+println("            </select>")
+println("        </div>")
+println("        ")
+println("        <div class=\"form-group\">")
+println("            <label for=\"analysis_select\">Analysis type:</label>")
+println("            <select id=\"analysis_select\" class=\"form-select\">")
+
+for (key, label) in analysis_types
+    println("                <option value=\"", key, "\">", label, "</option>")
+end
+
+println("            </select>")
+println("        </div>")
+println("        ")
+println("        <div class=\"form-group\">")
+println("            <label for=\"correction_select\">Multiple testing correction:</label>")
+println("            <select id=\"correction_select\" class=\"form-select\">")
+
+for (key, label) in correction_types
+    println("                <option value=\"", key, "\">", label, "</option>")
+end
+
+println("            </select>")
+println("        </div>")
+println("    </div>")
+println("</div>")
+println("")
+println("```")
+println("")
+println("### Heatmap")
+println("")
+println("```{=html}")
+println("")
+println("<div class=\"panel panel-default\">")
+println("    <div class=\"panel-body\">")
+println("        <img id=\"heatmap_img\" src=\"\" style=\"width: 100%; max-width: 100%; height: auto;\">")
+println("    </div>")
+println("</div>")
+println("")
+println("<div class=\"panel panel-default\">")
+println("    <div class=\"panel-body\">")
+println("        <div class=\"form-group\">")
+println("            <label for=\"mh_var_select\">Mental health variable:</label>")
+println("            <select id=\"mh_var_select\" class=\"form-select\">")
+
+for (key, label) in mh_vars
+    println("                <option value=\"", key, "\">", label, "</option>")
+end
+
+println("            </select>")
+println("        </div>")
+println("        ")
+println("        <div class=\"form-group\">")
+println("            <label for=\"screen_var_select\">Screen variable:</label>")
+println("            <select id=\"screen_var_select\" class=\"form-select\">")
+
+for (key, label) in screen_vars
+    println("                <option value=\"", key, "\">", label, "</option>")
+end
+
+println("            </select>")
+println("        </div>")
+println("        ")
+println("        <div class=\"form-group\">")
+println("            <label for=\"direction_select\">Directionality:</label>")
+println("            <select id=\"direction_select\" class=\"form-select\">")
+
+for (key, label) in directionality_list
+    println("                <option value=\"", key, "\">", label, "</option>")
+end
+
+println("            </select>")
+println("        </div>")
+println("    </div>")
+println("</div>")
+println("")
+println("```")
+println("")
+println("### Model output table")
+println("")
+println("```{=html}")
+println("")
+println("<div class=\"panel panel-default\">")
+println("    <div class=\"panel-body\">")
+println("        <div id=\"coeftable_container\" class=\"table-responsive\"></div>")
+println("    </div>")
+println("</div>")
+println("")
+println("```")
+println("")
+println("### Butterfly plot (modelled individual slopes)")
+println("")
+println("```{=html}")
+println("")
+println("<div class=\"panel panel-default\">")
+println("    <div class=\"panel-body\">")
+println("        <img id=\"butterfly_img\" src=\"\" style=\"width: 100%; max-width: 800px; height: auto;\">")
+println("    </div>")
+println("</div>")
+println("")
+println("<script>")
+print("const datasets = ")
+print(JSON3.write(datasets_list))
+println(";")
+print("const datasetPremhMapping = ")
+print(JSON3.write(dataset_premh_mapping))
+println(";")
+print("const datasetPostmhMapping = ")
+print(JSON3.write(dataset_postmh_mapping))
+println(";")
+println("")
+println("function updateHeatmap() {")
+println("    const dataset = datasets[document.getElementById('dataset_select').value - 1];")
+println("    const analysis = document.getElementById('analysis_select').value;")
+println("    const correction = document.getElementById('correction_select').value;")
+println("    ")
+println("    const filename = 'models_files/' + analysis + '_heatmaps/' + dataset + '_' + correction + '.svg';")
+println("    document.getElementById('heatmap_img').src = filename;")
+println("}")
+println("")
+println("function updateDetailedResults() {")
+println("    const datasetIdx = document.getElementById('dataset_select').value;")
+println("    const direction = document.getElementById('direction_select').value;")
+println("    const datasetName = direction === 'premh' ? datasetPremhMapping[datasetIdx] : datasetPostmhMapping[datasetIdx];")
+println("    const mhVar = document.getElementById('mh_var_select').value;")
+println("    const screenVar = document.getElementById('screen_var_select').value;")
+println("    const analysis = document.getElementById('analysis_select').value;")
+println("    ")
+println("    const tableFile = 'models_files/' + analysis + '_coeftables/' + datasetName + '_' + mhVar + '_' + screenVar + '.html';")
+println("    const plotFile = 'models_files/' + analysis + '_butterflyplots/' + datasetName + '_' + mhVar + '_' + screenVar + '.svg';")
+println("    ")
+println("    fetch(tableFile)")
+println("        .then(response => {")
+println("            if (!response.ok) throw new Error('Table not found');")
+println("            return response.text();")
+println("        })")
+println("        .then(html => {")
+println("            document.getElementById('coeftable_container').innerHTML = html;")
+println("        })")
+println("        .catch(err => {")
+println("            document.getElementById('coeftable_container').innerHTML = '<div class=\"alert alert-warning\">Table not available</div>';")
+println("        });")
+println("    ")
+println("    document.getElementById('butterfly_img').src = plotFile;")
+println("}")
+println("")
+println("// Set up event listeners")
+println("document.getElementById('dataset_select').addEventListener('change', () => {")
+println("    updateHeatmap();")
+println("    updateDetailedResults();")
+println("});")
+println("document.getElementById('analysis_select').addEventListener('change', () => {")
+println("    updateHeatmap();")
+println("    updateDetailedResults();")
+println("});")
+println("document.getElementById('correction_select').addEventListener('change', updateHeatmap);")
+println("document.getElementById('mh_var_select').addEventListener('change', updateDetailedResults);")
+println("document.getElementById('screen_var_select').addEventListener('change', updateDetailedResults);")
+println("document.getElementById('direction_select').addEventListener('change', updateDetailedResults);")
+println("")
+println("// Initialize")
+println("updateHeatmap();")
+println("updateDetailedResults();")
+println("</script>")
+println("```")
+```

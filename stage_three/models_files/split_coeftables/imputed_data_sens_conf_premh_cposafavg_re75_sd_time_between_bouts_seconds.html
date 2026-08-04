@@ -1,0 +1,456 @@
+<table>
+  <thead>
+    <tr class = "columnLabelRow">
+      <th style = "font-weight: bold; text-align: right;">Name</th>
+      <th style = "font-weight: bold; text-align: right;">Coef.</th>
+      <th style = "font-weight: bold; text-align: right;">Std. Error</th>
+      <th style = "font-weight: bold; text-align: right;">t</th>
+      <th style = "font-weight: bold; text-align: right;">df</th>
+      <th style = "font-weight: bold; text-align: right;">Pr(&gt;|t|)</th>
+      <th style = "font-weight: bold; text-align: right;">Lower 95%</th>
+      <th style = "font-weight: bold; text-align: right;">Upper 95%</th>
+    </tr>
+    <tr class = "columnLabelRow">
+      <th style = "text-align: right;">String</th>
+      <th style = "text-align: right;">Float64</th>
+      <th style = "text-align: right;">Float64</th>
+      <th style = "text-align: right;">Float64</th>
+      <th style = "text-align: right;">Float64</th>
+      <th style = "text-align: right;">StatsBase.PValue</th>
+      <th style = "text-align: right;">Float64</th>
+      <th style = "text-align: right;">Float64</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr class = "dataRow">
+      <td style = "text-align: right;">(Intercept)</td>
+      <td style = "text-align: right;">-0.0446764</td>
+      <td style = "text-align: right;">0.0725972</td>
+      <td style = "text-align: right;">-0.615401</td>
+      <td style = "text-align: right;">110.861</td>
+      <td style = "text-align: right;">0.5396</td>
+      <td style = "text-align: right;">-0.188535</td>
+      <td style = "text-align: right;">0.0991818</td>
+    </tr>
+    <tr class = "dataRow">
+      <td style = "text-align: right;">Positive affect_tr</td>
+      <td style = "text-align: right;">0.064127</td>
+      <td style = "text-align: right;">0.0672236</td>
+      <td style = "text-align: right;">0.953936</td>
+      <td style = "text-align: right;">145.937</td>
+      <td style = "text-align: right;">0.3417</td>
+      <td style = "text-align: right;">-0.0687306</td>
+      <td style = "text-align: right;">0.196985</td>
+    </tr>
+    <tr class = "dataRow">
+      <td style = "text-align: right;">Positive affect_st</td>
+      <td style = "text-align: right;">0.0411432</td>
+      <td style = "text-align: right;">0.0381354</td>
+      <td style = "text-align: right;">1.07887</td>
+      <td style = "text-align: right;">102.407</td>
+      <td style = "text-align: right;">0.2832</td>
+      <td style = "text-align: right;">-0.0344947</td>
+      <td style = "text-align: right;">0.116781</td>
+    </tr>
+    <tr class = "dataRow">
+      <td style = "text-align: right;">Positive affect_tr &amp; Positive affect_st</td>
+      <td style = "text-align: right;">-0.00642242</td>
+      <td style = "text-align: right;">0.0386183</td>
+      <td style = "text-align: right;">-0.166305</td>
+      <td style = "text-align: right;">282.132</td>
+      <td style = "text-align: right;">0.8680</td>
+      <td style = "text-align: right;">-0.082439</td>
+      <td style = "text-align: right;">0.0695941</td>
+    </tr>
+    <tr class = "dataRow">
+      <td style = "text-align: right;">Parents&apos; alcohol consumption</td>
+      <td style = "text-align: right;">0.351931</td>
+      <td style = "text-align: right;">0.0793813</td>
+      <td style = "text-align: right;">4.43342</td>
+      <td style = "text-align: right;">40.6195</td>
+      <td style = "text-align: right;">&lt;1e-04</td>
+      <td style = "text-align: right;">0.191571</td>
+      <td style = "text-align: right;">0.51229</td>
+    </tr>
+    <tr class = "dataRow">
+      <td style = "text-align: right;">Gender: Other</td>
+      <td style = "text-align: right;">-0.236868</td>
+      <td style = "text-align: right;">0.183495</td>
+      <td style = "text-align: right;">-1.29087</td>
+      <td style = "text-align: right;">89.2988</td>
+      <td style = "text-align: right;">0.2001</td>
+      <td style = "text-align: right;">-0.601451</td>
+      <td style = "text-align: right;">0.127715</td>
+    </tr>
+    <tr class = "dataRow">
+      <td style = "text-align: right;">Number of bouts of people on-screen</td>
+      <td style = "text-align: right;">-0.213254</td>
+      <td style = "text-align: right;">0.136745</td>
+      <td style = "text-align: right;">-1.5595</td>
+      <td style = "text-align: right;">54.5999</td>
+      <td style = "text-align: right;">0.1247</td>
+      <td style = "text-align: right;">-0.487342</td>
+      <td style = "text-align: right;">0.0608351</td>
+    </tr>
+    <tr class = "dataRow">
+      <td style = "text-align: right;">Smoking/vaping</td>
+      <td style = "text-align: right;">0.157657</td>
+      <td style = "text-align: right;">0.109175</td>
+      <td style = "text-align: right;">1.44407</td>
+      <td style = "text-align: right;">50.4758</td>
+      <td style = "text-align: right;">0.1549</td>
+      <td style = "text-align: right;">-0.0615765</td>
+      <td style = "text-align: right;">0.376891</td>
+    </tr>
+    <tr class = "dataRow">
+      <td style = "text-align: right;">Ethnicity: Multiple</td>
+      <td style = "text-align: right;">0.156519</td>
+      <td style = "text-align: right;">0.116226</td>
+      <td style = "text-align: right;">1.34667</td>
+      <td style = "text-align: right;">113.454</td>
+      <td style = "text-align: right;">0.1808</td>
+      <td style = "text-align: right;">-0.0737362</td>
+      <td style = "text-align: right;">0.386774</td>
+    </tr>
+    <tr class = "dataRow">
+      <td style = "text-align: right;">Receipt of SNAP</td>
+      <td style = "text-align: right;">0.155913</td>
+      <td style = "text-align: right;">0.0769294</td>
+      <td style = "text-align: right;">2.0267</td>
+      <td style = "text-align: right;">58.7526</td>
+      <td style = "text-align: right;">0.0472</td>
+      <td style = "text-align: right;">0.00196414</td>
+      <td style = "text-align: right;">0.309862</td>
+    </tr>
+    <tr class = "dataRow">
+      <td style = "text-align: right;">Parents&apos; anxiety</td>
+      <td style = "text-align: right;">0.131734</td>
+      <td style = "text-align: right;">0.0904024</td>
+      <td style = "text-align: right;">1.4572</td>
+      <td style = "text-align: right;">52.9848</td>
+      <td style = "text-align: right;">0.1510</td>
+      <td style = "text-align: right;">-0.0495912</td>
+      <td style = "text-align: right;">0.31306</td>
+    </tr>
+    <tr class = "dataRow">
+      <td style = "text-align: right;">Number of siblings</td>
+      <td style = "text-align: right;">-0.110379</td>
+      <td style = "text-align: right;">0.0467971</td>
+      <td style = "text-align: right;">-2.35866</td>
+      <td style = "text-align: right;">92.5574</td>
+      <td style = "text-align: right;">0.0204</td>
+      <td style = "text-align: right;">-0.203314</td>
+      <td style = "text-align: right;">-0.017443</td>
+    </tr>
+    <tr class = "dataRow">
+      <td style = "text-align: right;">School attendance: online</td>
+      <td style = "text-align: right;">-0.109707</td>
+      <td style = "text-align: right;">0.0451092</td>
+      <td style = "text-align: right;">-2.43202</td>
+      <td style = "text-align: right;">88.3617</td>
+      <td style = "text-align: right;">0.0170</td>
+      <td style = "text-align: right;">-0.199347</td>
+      <td style = "text-align: right;">-0.0200667</td>
+    </tr>
+    <tr class = "dataRow">
+      <td style = "text-align: right;">Parents&apos; tobacco and other substance use</td>
+      <td style = "text-align: right;">-0.104215</td>
+      <td style = "text-align: right;">0.100083</td>
+      <td style = "text-align: right;">-1.04128</td>
+      <td style = "text-align: right;">47.3909</td>
+      <td style = "text-align: right;">0.3030</td>
+      <td style = "text-align: right;">-0.305513</td>
+      <td style = "text-align: right;">0.0970832</td>
+    </tr>
+    <tr class = "dataRow">
+      <td style = "text-align: right;">COVID-19 distancing behaviours</td>
+      <td style = "text-align: right;">0.103947</td>
+      <td style = "text-align: right;">0.0461316</td>
+      <td style = "text-align: right;">2.25326</td>
+      <td style = "text-align: right;">79.3033</td>
+      <td style = "text-align: right;">0.0270</td>
+      <td style = "text-align: right;">0.0121293</td>
+      <td style = "text-align: right;">0.195764</td>
+    </tr>
+    <tr class = "dataRow">
+      <td style = "text-align: right;">Parents&apos; perceived smartphone addiction</td>
+      <td style = "text-align: right;">-0.0902905</td>
+      <td style = "text-align: right;">0.0475333</td>
+      <td style = "text-align: right;">-1.89952</td>
+      <td style = "text-align: right;">77.4005</td>
+      <td style = "text-align: right;">0.0612</td>
+      <td style = "text-align: right;">-0.184934</td>
+      <td style = "text-align: right;">0.00435247</td>
+    </tr>
+    <tr class = "dataRow">
+      <td style = "text-align: right;">Parents&apos; perceived general health</td>
+      <td style = "text-align: right;">-0.0834786</td>
+      <td style = "text-align: right;">0.0527392</td>
+      <td style = "text-align: right;">-1.58286</td>
+      <td style = "text-align: right;">66.2738</td>
+      <td style = "text-align: right;">0.1182</td>
+      <td style = "text-align: right;">-0.188768</td>
+      <td style = "text-align: right;">0.0218105</td>
+    </tr>
+    <tr class = "dataRow">
+      <td style = "text-align: right;">Conflict with parents regarding device use</td>
+      <td style = "text-align: right;">-0.0801785</td>
+      <td style = "text-align: right;">0.0598244</td>
+      <td style = "text-align: right;">-1.34023</td>
+      <td style = "text-align: right;">81.8294</td>
+      <td style = "text-align: right;">0.1839</td>
+      <td style = "text-align: right;">-0.199192</td>
+      <td style = "text-align: right;">0.038835</td>
+    </tr>
+    <tr class = "dataRow">
+      <td style = "text-align: right;">School attendance: face-to-face</td>
+      <td style = "text-align: right;">0.0734208</td>
+      <td style = "text-align: right;">0.0419933</td>
+      <td style = "text-align: right;">1.74839</td>
+      <td style = "text-align: right;">86.4611</td>
+      <td style = "text-align: right;">0.0839</td>
+      <td style = "text-align: right;">-0.0100528</td>
+      <td style = "text-align: right;">0.156894</td>
+    </tr>
+    <tr class = "dataRow">
+      <td style = "text-align: right;">Initial age</td>
+      <td style = "text-align: right;">-0.0723736</td>
+      <td style = "text-align: right;">0.0449916</td>
+      <td style = "text-align: right;">-1.6086</td>
+      <td style = "text-align: right;">91.817</td>
+      <td style = "text-align: right;">0.1111</td>
+      <td style = "text-align: right;">-0.161733</td>
+      <td style = "text-align: right;">0.016986</td>
+    </tr>
+    <tr class = "dataRow">
+      <td style = "text-align: right;">Cannabis use</td>
+      <td style = "text-align: right;">-0.0692137</td>
+      <td style = "text-align: right;">0.108669</td>
+      <td style = "text-align: right;">-0.63692</td>
+      <td style = "text-align: right;">50.32</td>
+      <td style = "text-align: right;">0.5271</td>
+      <td style = "text-align: right;">-0.287448</td>
+      <td style = "text-align: right;">0.149021</td>
+    </tr>
+    <tr class = "dataRow">
+      <td style = "text-align: right;">Perceived general health</td>
+      <td style = "text-align: right;">0.0643648</td>
+      <td style = "text-align: right;">0.0480268</td>
+      <td style = "text-align: right;">1.34018</td>
+      <td style = "text-align: right;">82.2933</td>
+      <td style = "text-align: right;">0.1839</td>
+      <td style = "text-align: right;">-0.0311708</td>
+      <td style = "text-align: right;">0.1599</td>
+    </tr>
+    <tr class = "dataRow">
+      <td style = "text-align: right;">Parental fear related to COVID-19 in media</td>
+      <td style = "text-align: right;">-0.0639686</td>
+      <td style = "text-align: right;">0.0533597</td>
+      <td style = "text-align: right;">-1.19882</td>
+      <td style = "text-align: right;">56.8467</td>
+      <td style = "text-align: right;">0.2356</td>
+      <td style = "text-align: right;">-0.170826</td>
+      <td style = "text-align: right;">0.0428885</td>
+    </tr>
+    <tr class = "dataRow">
+      <td style = "text-align: right;">Parents&apos; perceived social media addiction</td>
+      <td style = "text-align: right;">0.0636027</td>
+      <td style = "text-align: right;">0.0620153</td>
+      <td style = "text-align: right;">1.0256</td>
+      <td style = "text-align: right;">55.4558</td>
+      <td style = "text-align: right;">0.3095</td>
+      <td style = "text-align: right;">-0.0606557</td>
+      <td style = "text-align: right;">0.187861</td>
+    </tr>
+    <tr class = "dataRow">
+      <td style = "text-align: right;">Parental warmth</td>
+      <td style = "text-align: right;">-0.0633987</td>
+      <td style = "text-align: right;">0.0497959</td>
+      <td style = "text-align: right;">-1.27317</td>
+      <td style = "text-align: right;">79.6872</td>
+      <td style = "text-align: right;">0.2067</td>
+      <td style = "text-align: right;">-0.162502</td>
+      <td style = "text-align: right;">0.0357043</td>
+    </tr>
+    <tr class = "dataRow">
+      <td style = "text-align: right;">Sleep quality</td>
+      <td style = "text-align: right;">-0.0580809</td>
+      <td style = "text-align: right;">0.0562137</td>
+      <td style = "text-align: right;">-1.03322</td>
+      <td style = "text-align: right;">61.4837</td>
+      <td style = "text-align: right;">0.3055</td>
+      <td style = "text-align: right;">-0.170469</td>
+      <td style = "text-align: right;">0.0543074</td>
+    </tr>
+    <tr class = "dataRow">
+      <td style = "text-align: right;">Perceived smartphone addiction</td>
+      <td style = "text-align: right;">-0.0559031</td>
+      <td style = "text-align: right;">0.0446186</td>
+      <td style = "text-align: right;">-1.25291</td>
+      <td style = "text-align: right;">113.384</td>
+      <td style = "text-align: right;">0.2128</td>
+      <td style = "text-align: right;">-0.144297</td>
+      <td style = "text-align: right;">0.0324912</td>
+    </tr>
+    <tr class = "dataRow">
+      <td style = "text-align: right;">Parents&apos; positive affect</td>
+      <td style = "text-align: right;">0.0528737</td>
+      <td style = "text-align: right;">0.0656818</td>
+      <td style = "text-align: right;">0.804999</td>
+      <td style = "text-align: right;">63.8681</td>
+      <td style = "text-align: right;">0.4238</td>
+      <td style = "text-align: right;">-0.0783459</td>
+      <td style = "text-align: right;">0.184093</td>
+    </tr>
+    <tr class = "dataRow">
+      <td style = "text-align: right;">Parents&apos; psychological stress</td>
+      <td style = "text-align: right;">-0.0303561</td>
+      <td style = "text-align: right;">0.0842533</td>
+      <td style = "text-align: right;">-0.360296</td>
+      <td style = "text-align: right;">53.6253</td>
+      <td style = "text-align: right;">0.7200</td>
+      <td style = "text-align: right;">-0.199301</td>
+      <td style = "text-align: right;">0.138589</td>
+    </tr>
+    <tr class = "dataRow">
+      <td style = "text-align: right;">Alcohol consumption</td>
+      <td style = "text-align: right;">-0.0266899</td>
+      <td style = "text-align: right;">0.0846158</td>
+      <td style = "text-align: right;">-0.315424</td>
+      <td style = "text-align: right;">46.793</td>
+      <td style = "text-align: right;">0.7538</td>
+      <td style = "text-align: right;">-0.196935</td>
+      <td style = "text-align: right;">0.143555</td>
+    </tr>
+    <tr class = "dataRow">
+      <td style = "text-align: right;">Ethnicity: Asian</td>
+      <td style = "text-align: right;">-0.0225622</td>
+      <td style = "text-align: right;">0.165746</td>
+      <td style = "text-align: right;">-0.136125</td>
+      <td style = "text-align: right;">91.9555</td>
+      <td style = "text-align: right;">0.8920</td>
+      <td style = "text-align: right;">-0.351751</td>
+      <td style = "text-align: right;">0.306626</td>
+    </tr>
+    <tr class = "dataRow">
+      <td style = "text-align: right;">Parents&apos; loneliness</td>
+      <td style = "text-align: right;">-0.020856</td>
+      <td style = "text-align: right;">0.0796837</td>
+      <td style = "text-align: right;">-0.261735</td>
+      <td style = "text-align: right;">50.9073</td>
+      <td style = "text-align: right;">0.7946</td>
+      <td style = "text-align: right;">-0.180835</td>
+      <td style = "text-align: right;">0.139123</td>
+    </tr>
+    <tr class = "dataRow">
+      <td style = "text-align: right;">Conflict with parents other than regarding device use</td>
+      <td style = "text-align: right;">0.0202518</td>
+      <td style = "text-align: right;">0.0672587</td>
+      <td style = "text-align: right;">0.301102</td>
+      <td style = "text-align: right;">70.8067</td>
+      <td style = "text-align: right;">0.7642</td>
+      <td style = "text-align: right;">-0.113865</td>
+      <td style = "text-align: right;">0.154368</td>
+    </tr>
+    <tr class = "dataRow">
+      <td style = "text-align: right;">Total number of screenshots collected in period</td>
+      <td style = "text-align: right;">-0.0178504</td>
+      <td style = "text-align: right;">0.149403</td>
+      <td style = "text-align: right;">-0.119478</td>
+      <td style = "text-align: right;">52.7431</td>
+      <td style = "text-align: right;">0.9054</td>
+      <td style = "text-align: right;">-0.317549</td>
+      <td style = "text-align: right;">0.281848</td>
+    </tr>
+    <tr class = "dataRow">
+      <td style = "text-align: right;">Study timepoint</td>
+      <td style = "text-align: right;">-0.0145636</td>
+      <td style = "text-align: right;">0.0398761</td>
+      <td style = "text-align: right;">-0.36522</td>
+      <td style = "text-align: right;">73.9098</td>
+      <td style = "text-align: right;">0.7160</td>
+      <td style = "text-align: right;">-0.0940201</td>
+      <td style = "text-align: right;">0.064893</td>
+    </tr>
+    <tr class = "dataRow">
+      <td style = "text-align: right;">Fear related to COVID-19 in media</td>
+      <td style = "text-align: right;">0.0143355</td>
+      <td style = "text-align: right;">0.0442268</td>
+      <td style = "text-align: right;">0.324135</td>
+      <td style = "text-align: right;">72.1411</td>
+      <td style = "text-align: right;">0.7468</td>
+      <td style = "text-align: right;">-0.0738261</td>
+      <td style = "text-align: right;">0.102497</td>
+    </tr>
+    <tr class = "dataRow">
+      <td style = "text-align: right;">Ethnicity: Black or African American</td>
+      <td style = "text-align: right;">0.0125684</td>
+      <td style = "text-align: right;">0.135011</td>
+      <td style = "text-align: right;">0.0930913</td>
+      <td style = "text-align: right;">96.862</td>
+      <td style = "text-align: right;">0.9260</td>
+      <td style = "text-align: right;">-0.255396</td>
+      <td style = "text-align: right;">0.280533</td>
+    </tr>
+    <tr class = "dataRow">
+      <td style = "text-align: right;">Perceived social media addiction</td>
+      <td style = "text-align: right;">-0.0112295</td>
+      <td style = "text-align: right;">0.0535105</td>
+      <td style = "text-align: right;">-0.209856</td>
+      <td style = "text-align: right;">77.8256</td>
+      <td style = "text-align: right;">0.8343</td>
+      <td style = "text-align: right;">-0.117765</td>
+      <td style = "text-align: right;">0.0953055</td>
+    </tr>
+    <tr class = "dataRow">
+      <td style = "text-align: right;">Physical exercise</td>
+      <td style = "text-align: right;">-0.00859668</td>
+      <td style = "text-align: right;">0.0419279</td>
+      <td style = "text-align: right;">-0.205035</td>
+      <td style = "text-align: right;">77.8902</td>
+      <td style = "text-align: right;">0.8381</td>
+      <td style = "text-align: right;">-0.0920707</td>
+      <td style = "text-align: right;">0.0748773</td>
+    </tr>
+    <tr class = "dataRow">
+      <td style = "text-align: right;">Parental education</td>
+      <td style = "text-align: right;">-0.00752693</td>
+      <td style = "text-align: right;">0.0822062</td>
+      <td style = "text-align: right;">-0.0915616</td>
+      <td style = "text-align: right;">62.7452</td>
+      <td style = "text-align: right;">0.9273</td>
+      <td style = "text-align: right;">-0.171816</td>
+      <td style = "text-align: right;">0.156762</td>
+    </tr>
+    <tr class = "dataRow">
+      <td style = "text-align: right;">Household income</td>
+      <td style = "text-align: right;">0.00486219</td>
+      <td style = "text-align: right;">0.120704</td>
+      <td style = "text-align: right;">0.040282</td>
+      <td style = "text-align: right;">46.2696</td>
+      <td style = "text-align: right;">0.9680</td>
+      <td style = "text-align: right;">-0.238063</td>
+      <td style = "text-align: right;">0.247788</td>
+    </tr>
+    <tr class = "dataRow">
+      <td style = "text-align: right;">Gender: Female</td>
+      <td style = "text-align: right;">0.00261378</td>
+      <td style = "text-align: right;">0.0949861</td>
+      <td style = "text-align: right;">0.0275175</td>
+      <td style = "text-align: right;">92.4675</td>
+      <td style = "text-align: right;">0.9781</td>
+      <td style = "text-align: right;">-0.186024</td>
+      <td style = "text-align: right;">0.191252</td>
+    </tr>
+    <tr class = "dataRow">
+      <td style = "text-align: right;">Parents&apos; depression</td>
+      <td style = "text-align: right;">-0.00231081</td>
+      <td style = "text-align: right;">0.10872</td>
+      <td style = "text-align: right;">-0.0212546</td>
+      <td style = "text-align: right;">56.8285</td>
+      <td style = "text-align: right;">0.9831</td>
+      <td style = "text-align: right;">-0.220034</td>
+      <td style = "text-align: right;">0.215412</td>
+    </tr>
+  </tbody>
+</table>

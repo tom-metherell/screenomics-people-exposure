@@ -1,0 +1,20 @@
+configfile: "resources/configfile.yaml"
+
+rule all:
+    input:
+        "resources/tm_missings_summary.csv",
+        "resources/tm_missings_detail.csv",
+        "resources/tm_missing_intervals.csv"
+
+rule missings_summary:
+    input:
+        "resources/teen_survey_timestamps_added_pids.csv",
+        "resources/Participant Time Zones.csv",
+        "resources/tm_teen_survey_pid_mapping.csv",
+        expand("resources/missingness/missing_categories_{participant_id}.csv", participant_id = config["participant_ids"])
+    output:
+        "resources/tm_missings_summary.csv",
+        "resources/tm_missings_detail.csv",
+        "resources/tm_missing_intervals.csv"
+    script:
+        "scripts/missingness_ident.jl"
