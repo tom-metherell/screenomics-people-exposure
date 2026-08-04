@@ -1,6 +1,6 @@
 # On-screen people exposure derived from screen captures and internalising symptoms in adolescents
 
-This repository contains the supplementary data for the paper "On-screen people exposure derived from screen captures and internalising symptoms in adolescents" (preprint available at LINK TBC).
+This repository contains the supplementary data for the paper "On-screen people exposure derived from screen captures and internalising symptoms in adolescents" (preprint forthcoming).
 
 Please review the licensing information at [LICENCE](https://github.com/tom-metherell/screenomics-people-exposure/blob/main/LICENCE) before reusing any software in this repository.
 
