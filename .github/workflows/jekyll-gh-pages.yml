@@ -34,6 +34,8 @@ jobs:
         run: |
           mkdir -p dist
           rsync -aL docs/ dist/
+          # Hotfix for URLs with GitHub Pages hosting
+          sed -i "s|const filename = 'models_files/' + analysis + '_heatmaps/' + dataset + '_' + correction + '.svg';|const filename = 'models_files/' + analysis + '_heatmaps/' + (dataset + '_' + correction).replace(/%/g, '%25') + '.svg';|g" dist/models/index.html
       - name: Build with Jekyll
         uses: actions/jekyll-build-pages@v1
         with:
