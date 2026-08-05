@@ -32,8 +32,8 @@ and then access the file by visiting `localhost:8000/models.html` in your web br
 
 The files are as follows:
 
-* Descriptives (`descriptives.html`, [view online](https://tom-metherell.github.io/screenomics-people-exposure/descriptives.html))
+* Descriptives (`descriptives.html`, [view online](https://tom-metherell.github.io/screenomics-people-exposure/descriptives))
 
-* Multiple imputation plots (`multiple_imputation.html`, [view online](https://tom-metherell.github.io/screenomics-people-exposure/multiple_imputation.html))
+* Multiple imputation plots (`multiple_imputation.html`, [view online](https://tom-metherell.github.io/screenomics-people-exposure/multiple_imputation))
 
-* Modelling including results dashboard (`models.html`, [view online](https://tom-metherell.github.io/screenomics-people-exposure/models.html))
+* Modelling including results dashboard (`models.html`, [view online](https://tom-metherell.github.io/screenomics-people-exposure/models))
