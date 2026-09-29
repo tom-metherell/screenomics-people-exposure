@@ -266,7 +266,7 @@ WITH
 			MIN(screenshot_ts) AS bout_start_ts,
 			MAX(screenshot_ts) AS bout_end_ts,
 			COUNT(*) AS n_screenshots_in_bout,
-			TIMESTAMP_DIFF(MAX(screenshot_ts), MIN(screenshot_ts), SECOND) AS bout_duration_seconds
+			GREATEST(5.0, TIMESTAMP_DIFF(MAX(screenshot_ts), MIN(screenshot_ts), SECOND)) AS bout_duration_seconds
 		FROM person_rows
 		GROUP BY participant_id, period_id, bout_group
 	),

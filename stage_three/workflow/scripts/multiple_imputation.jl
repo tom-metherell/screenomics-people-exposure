@@ -16,10 +16,10 @@ data_postmh = load(snakemake.input[2], "data_postmh")
 ### Removal/simplification of some variables to reduce complexity and allow imputation convergence
 for i in [data_premh, data_postmh]
     i[!, "dv_psubs1_re"] = maximum.(eachrow(i[:, ["dv_psubs1_re", "dv_psubs3_re"]])) # Merge tobacco and other substance use
+    i[!, "dv_pempl"] = unwrap.(recode(i[!, "dv_pempl"], [k => 0 for k in ["Not working for pay", "Working part-time"]]..., "Working full-time" => 1)) # Simplify employment status to binary
     # Remove the following variables:
     select!(i, Not(
         "median_bout_sd_person_area_pct", # Variance too low
-        "dv_pempl", "dv_pessent", # Both too multicollinear with other socioeconomic variables
         "dv_psubs3_re" # Redundant following merger above
     ))
 end

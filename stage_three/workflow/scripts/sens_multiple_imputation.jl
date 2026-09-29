@@ -29,10 +29,10 @@ datasetlist = [data_premh, data_postmh, sens_wd_data_premh, sens_wd_data_postmh,
 ### Removal/simplification of some variables to reduce complexity and allow imputation convergence
 for i in datasetlist
     i[!, "dv_psubs1_re"] = maximum.(eachrow(i[:, ["dv_psubs1_re", "dv_psubs3_re"]])) # Merge tobacco and other substance use
+    i[!, "dv_pempl"] = unwrap.(recode(i[!, "dv_pempl"], [k => 0 for k in ["Not working for pay", "Working part-time"]]..., "Working full-time" => 1)) # Simplify employment status to binary
     # Remove the following variables:
     select!(i, Not(
         "median_bout_sd_person_area_pct", # Variance too low
-        "dv_pempl", "dv_pessent", # Both too multicollinear with other socioeconomic variables
         "dv_psubs3_re" # Redundant following merger above
     ))
 end
@@ -46,6 +46,7 @@ for i in [data_premh, data_postmh]
 end
 
 ### Preparation of imputation predictor matrix: participant_id and family_id should not act as predictors
+# Shortened list of predictors for analyses leaving out auxiliary variables
 shortpredictormatrix = makepredictormatrix(data_premh)
 shortpredictormatrix[:, ["participant_id", "family_id"]] .= 0
 

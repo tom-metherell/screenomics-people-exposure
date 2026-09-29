@@ -54,11 +54,11 @@ ad_column_patterns = Dict(
 pa_column_patterns = Dict(
     # Time-invariant covariates (in all cases asked until answered)
     [Symbol("p", j, "educ") => i -> string("p", j, "educ", lpad(string(i), 2, "0")) for j in ["", "s"]]..., # Parental education
-    [Symbol("p", j) => i -> string("p", j, lpad(string(i), 2, "0")) for j in ["empl", "sempl", "essent", "sessent"]]..., # Parental employment
     :phhinc => i -> string("phhinc", lpad(string(i), 2, "0")), # Household income
     :psnap => i -> string("psnap", lpad(string(i), 2, "0")), # Use of SNAP/EBT etc.
 
     # Time-varying covariates
+    [Symbol("p", j) => i -> string("p", j, lpad(string(i), 2, "0")) for j in ["empl", "sempl", "essent", "sessent"]]..., # Parental employment
     [Symbol("padd", j) => i -> string("padd", j, lpad(string(i), 2, "0")) for j in ["ph", "sm"]]..., # Perceived parental addiction to social media/smartphone
     :psaddph => i -> string("psaddph", lpad(string(i), 2, "0")), # Perceived spousal addiction to smartphone
     :phealth => i -> string("phealth", lpad(string(i), 2, "0")), # General health
@@ -143,6 +143,15 @@ for entry in ad_merge_table
 end
 
 ## More complex logic
+# Loneliness: make binary
+adol_data_pivot.ccdis08 = map(eachrow(adol_data_pivot)) do row
+    if coalesce(row.ccdis08 == 2, false)
+        1
+    else 
+        row.ccdis08
+    end
+end
+
 # Gender: make categorical
 adol_data_pivot.cgenderfirst = categorical(adol_data_pivot.cgenderfirst, ordered = false)
 
@@ -292,10 +301,10 @@ select!(adol_data_pivot, Not(r"^crace\d+first$", :ccyb2wk, r"^ccovtest", r"^csub
 ## Standard operations
 pa_merge_table = (
     (:dv_paredu, [Symbol("p", j, "educ") for j in ["", "s"]], i -> all(ismissing.(Matrix(i))) ? missing : maximum(skipmissing(Matrix(i)))), # Parental education: highest across parents
-    (:dv_pempl, [Symbol("p", j) for j in ["empl", "sempl"]], i -> all(ismissing.(Matrix(i))) ? missing : minimum(skipmissing(Matrix(i)))), # Parental employment: greatest extent across parents
-    (:dv_pessent, [Symbol("p", j) for j in ["essent", "sessent"]], i -> all(ismissing.(Matrix(i))) ? missing : maximum(skipmissing(Matrix(i)))), # Parental essential worker status: if any yes then yes
     (:dv_phhinc, :phhinc, i -> all(ismissing.(Vector(i))) || length(unique(skipmissing(Vector(i)))) > 1 ? missing : only(unique(skipmissing(Vector(i))))), # Household income: reject if disagreement
     (:dv_psnap, :psnap, i -> all(ismissing.(Vector(i))) ? missing : maximum(skipmissing(Vector(i)))), # Use of SNAP/EBT etc.: if any yes then yes
+    (:dv_pempl, [Symbol("p", j) for j in ["empl", "sempl"]], i -> all(ismissing.(Matrix(i))) ? missing : minimum(skipmissing(Matrix(i)))), # Parental employment: greatest extent across parents
+    (:dv_pessent, [Symbol("p", j) for j in ["essent", "sessent"]], i -> all(ismissing.(Matrix(i))) ? missing : maximum(skipmissing(Matrix(i)))), # Parental essential worker status: if any yes then yes
     (:dv_paddph, [Symbol("p", j) for j in ["addph", "saddph"]], i -> all(ismissing.(Matrix(i))) ? missing : maximum(skipmissing(Matrix(i)))), # Perceived spousal addiction to smartphone: if any yes then yes
     (:dv_paddsm, :paddsm, i -> all(ismissing.(Vector(i))) ? missing : maximum(skipmissing(Vector(i)))), # Perceived parental addiction to smartphone: if any yes then yes
     (:dv_phealth, :phealth, i -> all(ismissing.(Vector(i))) ? missing : maximum(skipmissing(Vector(i)))), # General health: keep worst rating across parents
@@ -320,6 +329,11 @@ for entry in pa_merge_table
 end
 
 ## More complex logic
+# Employment: make categorical and ordered
+parent_data_pivot[!, :dv_pempl] = categorical(parent_data_pivot.dv_pempl, ordered = true)
+parent_data_pivot[!, :dv_pempl] = recode(parent_data_pivot.dv_pempl, 3 => "Not working for pay", 2 => "Working part-time", 1 => "Working full-time")
+levels!(parent_data_pivot.dv_pempl, ["Not working for pay", "Working part-time", "Working full-time"])
+
 # COVID-19 caseness
 parent_data_pivot[!, :dv_pcovcase] = map(eachrow(parent_data_pivot)) do row
     if coalesce(row[:pcovtestr] == 1, false) && coalesce(row[:pcovtestdb] ≤ 14, false) && coalesce(row[:pcovtestdb] > -1, true) # Reject negative "days before" values (outside a margin of error) as clearly wrong
@@ -397,13 +411,12 @@ survey_data_pivot = outerjoin(adol_data_pivot, parent_data_pivot, on = [:family_
 ask_pattern = Dict(
     [k => "odd" for k in [:cschftf, :cschonli, :dv_cpwarm, :dv_cpconf5, :dv_cpconf, :dv_pempl, :dv_pessent]]..., # Asked at every odd timepoint (1, 3, 5, 7, 9, 11, 13)
     :cwgtconavg_re75 => "even", # Asked at baseline + every even timepoint (1, 2, 4, 6, 8, 10, 12)
-    [k => "once" for k in [:dv_pempl, :dv_pessent, :dv_psnap, :dv_paredu, :dv_phhinc]]... # Asked until answered
+    [k => "once" for k in [:dv_psnap, :dv_paredu, :dv_phhinc]]... # Asked until answered
 )
 
 resolution = Dict(
     :dv_phhinc => "reject",
-    [k => "maximum" for k in [:dv_paredu, :dv_pessent, :dv_psnap]]...,
-    :dv_pempl => "minimum"
+    [k => "maximum" for k in [:dv_paredu, :dv_psnap]]...
 )
 
 for key in keys(ask_pattern)
@@ -429,8 +442,6 @@ for key in keys(ask_pattern)
                         missing
                     elseif resolution[key] == "maximum"
                         maximum(skipmissing(survey_data_pivot[survey_data_pivot.participant_id .== ppt, key]))
-                    elseif resolution[key] == "minimum"
-                        minimum(skipmissing(survey_data_pivot[survey_data_pivot.participant_id .== ppt, key]))
                     end
                 else
                     only(unique(skipmissing(survey_data_pivot[survey_data_pivot.participant_id .== ppt, key])))
