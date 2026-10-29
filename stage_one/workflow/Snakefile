@@ -1,0 +1,36 @@
+rule all:
+    input:
+        "resources/tm_teen_survey_timestamps_added_pids.csv",
+        "resources/tm_teen_survey_timestamps_cleaned.jld2",
+        "resources/tm_teen_survey_pid_mapping.csv",
+        "resources/tm_teen_survey_periods.csv"
+
+rule get_timestamps:
+    output:
+        "resources/tm_teen_survey_timestamps_added_pids.csv"
+    script:
+        "scripts/get_timestamps.py"
+
+rule clean_timestamps:
+    input:
+        "resources/tm_teen_survey_timestamps_added_pids.csv"
+    output:
+        "resources/tm_teen_survey_timestamps_cleaned.jld2"
+    script:
+        "scripts/clean_timestamps.jl"
+
+rule list_periods:
+    input:
+        "resources/tm_teen_survey_timestamps_cleaned.jld2"
+    output:
+        "resources/tm_teen_survey_pid_mapping.csv",
+        "resources/tm_teen_survey_periods.csv"
+    script:
+        "scripts/list_periods.jl"
+
+rule upload_tables:
+    input:
+        "resources/tm_teen_survey_pid_mapping.csv",
+        "resources/tm_teen_survey_periods.csv"
+    script:
+        "scripts/upload_tables.py"

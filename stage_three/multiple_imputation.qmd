@@ -1,0 +1,99 @@
+---
+title: "Multiple imputation plots"
+author: "Thomas E. Metherell"
+date: "2026-05-27"
+format:
+    html:
+        code-fold: true
+        toc: true
+        toc-depth: 5
+engine: julia
+julia:
+    project: .
+---
+
+## Dependencies
+
+```{julia}
+#| include: false
+using CategoricalArrays, DataFrames, JLD2, Mice, OrderedCollections, Plots
+
+datalist = OrderedDict(
+	"imputed_data_premh" => ["Main dataset", "Mental health → On-screen people exposure statistics"],
+	"imputed_data_postmh" => ["Main dataset", "On-screen people exposure statistics → Mental health"],
+	"R_imputed_data_premh" => ["Main dataset (imputed in R)", "Mental health → On-screen people exposure statistics"],
+	"R_imputed_data_postmh" => ["Main dataset (imputed in R)", "On-screen people exposure statistics → Mental health"],
+	"imputed_data_sens_auxil_premh" => ["Sensitivity analysis dataset without potential colliders as auxiliary variables", "Mental health → On-screen people exposure statistics"],
+	"imputed_data_sens_auxil_postmh" => ["Sensitivity analysis dataset without potential colliders as auxiliary variables", "On-screen people exposure statistics → Mental health"],
+	"imputed_data_sens_wd_premh" => ["Weekday-only sensitivity analysis dataset", "Mental health → On-screen people exposure statistics"],
+	"imputed_data_sens_wd_postmh" => ["Weekday-only sensitivity analysis dataset", "On-screen people exposure statistics → Mental health"],
+	"imputed_data_sens_we_premh" => ["Weekend-only sensitivity analysis dataset", "Mental health → On-screen people exposure statistics"],
+	"imputed_data_sens_we_postmh" => ["Weekend-only sensitivity analysis dataset", "On-screen people exposure statistics → Mental health"],
+	"imputed_data_sens_missingness_premh" => ["Sensitivity analysis dataset without participants with >75% of periods of phone use classed as missing", "Mental health → On-screen people exposure statistics"],
+	"imputed_data_sens_missingness_postmh" => ["Sensitivity analysis dataset without participants with >75% of periods of phone use classed as missing", "On-screen people exposure statistics → Mental health"],
+	"imputed_data_sens_conf_premh" => ["Sensitivity analysis dataset with person exposure summary statistics not requiring minimum 70% confidence in people detections", "Mental health → On-screen people exposure statistics"],
+	"imputed_data_sens_conf_postmh" => ["Sensitivity analysis dataset with person exposure summary statistics not requiring minimum 70% confidence in people detections", "On-screen people exposure statistics → Mental health"]
+);
+
+datasets = OrderedDict();
+for i in eachindex(datalist)
+	push!(datasets, i => load("resources/" * i * ".jld2", i))
+end;
+```
+
+## Diagnostic plots
+The diagnostic plots from each set of imputations are displayed below. Use the sliders to view the different variables across the imputed datasets.
+
+```{julia}
+#| echo: false
+gr()
+ENV["GKSwstype"] = "100";
+```
+
+```{julia}
+#| output: asis
+for y in unique([x[1] for x in values(datalist)])
+	println("### ", y, "\n")
+
+	for z in unique([x[2] for x in values(datalist)])
+		k = collect(keys(datalist))[findfirst(x -> x[1] == y && x[2] == z, collect(values(datalist)))]
+		v = datasets[k]
+
+    	println("#### ", z, "\n")
+	
+    	# Generate all plots and save as images
+    	img_paths = String[]
+    	for i in eachindex(v.visitsequence)
+    	    p = plot(v, i)
+    	    imgpath = "multiple_imputation_files/plots/$(k)_$(i).svg"
+    	    savefig(p, imgpath)
+    	    push!(img_paths, imgpath)
+    	end
+	
+    	# Create JavaScript array string
+    	js_array = "[" * join(["'$path'" for path in img_paths], ", ") * "]"
+	
+    	# Create HTML slider
+    	html_code = """
+    	<div>
+    	    <input type="range" min="1" max="$(length(img_paths))" value="1" 
+    	           id="slider_$(k)" oninput="updatePlot_$(k)(this.value)">
+    	    <span id="label_$(k)">Variable: 1</span>
+    	    <br>
+    	    <img id="plot_$(k)" src="$(img_paths[1])" width="100%">
+    	</div>
+    	<script>
+    	function updatePlot_$(k)(val) {
+    	    const images = $(js_array);
+    	    document.getElementById('plot_$(k)').src = images[val-1];
+    	    document.getElementById('label_$(k)').innerText = 'Variable: ' + val;
+    	}
+    	</script>
+    	"""
+	
+    	println("```{=html}")
+    	println(html_code)
+    	println("```\n")
+	end
+end
+```
